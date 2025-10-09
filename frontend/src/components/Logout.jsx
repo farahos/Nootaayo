@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { saveAs } from 'file-saver';
 
 const SponsorshipGabar = () => {
-  const [formData, setFormData] = useState({
+ const [formData, setFormData] = useState({
     damiinte: { fullName: "", idType: "", idNo: "" },
     laDamiinte: { fullName: "", idType: "", idNo: "" },
     year: '',
@@ -14,14 +14,21 @@ const SponsorshipGabar = () => {
     Witnesses1: '',
     Witnesses2: ''
   });
-  const [suggestions, setSuggestions] = useState({ damiinte: [], laDamiinte: [] });
+  
+  const [modal, setModal] = useState(null);
+  const [mode, setMode] = useState("keydan");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [records, setRecords] = useState({ damiinte: [], laDamiinte: [] });
+  const [editIndex, setEditIndex] = useState(null);
+  const [suggestions, setSuggestions] = useState([]); // Simplify suggestions
   const [existing, setExisting] = useState({ damiinte: false, laDamiinte: false });
-  const [includeLaDamiinte, setIncludeLaDamiinte] = useState(false); // toggle for 2nd person
-  const idTypes = ["Passport", "ID Card", "Sugnan", "Laysin"];
+  const [includeLaDamiinte, setIncludeLaDamiinte] = useState(false);
 
+  const idTypes = ["Passport", "ID Card", "Sugnan", "Laysin"];
   const [showLetter, setShowLetter] = useState(false);
   const [showMessage, setShowMessage] = useState('');
 
+  // Handle main form inputs
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -29,91 +36,144 @@ const SponsorshipGabar = () => {
       [name]: value
     }));
   };
-  
-  const handleChange = async (e, type) => {
+
+  // Handle search for damiinte/laDamiinte
+  const handleSearch = async (e) => {
     const value = e.target.value;
-    setFormData({
-      ...formData,
-      [type]: { ...formData[type], [e.target.name]: value }
-    });
+    setSearchQuery(value);
+    
+    // Update the correct nested field based on modal type
+    setFormData(prev => ({
+      ...prev,
+      [modal]: {
+        ...prev[modal],
+        fullName: value
+      }
+    }));
 
-    // Search suggestion by name
-    if (e.target.name === "fullName" && value.length >= 2) {
-      const res = await fetch(`/api/damiin/search-names?query=${value}`);
-      const data = await res.json();
-
-      setSuggestions((prev) => ({ ...prev, [type]: data }));
-
-      // haddii qof jira oo magaciisu ku jiro → calaamadee "existing"
-      if (data.length > 0) {
-        setExisting((prev) => ({ ...prev, [type]: true }));
-      } else {
-        setExisting((prev) => ({ ...prev, [type]: false }));
+    if (mode === "keydan" && value.length >= 2) {
+      try {
+        const res = await fetch(`/api/damiin/search-names?query=${value}`);
+        const data = await res.json();
+        setSuggestions(data);
+      } catch (err) {
+        console.error("Search error:", err);
       }
     } else {
-      setSuggestions((prev) => ({ ...prev, [type]: [] }));
-      setExisting((prev) => ({ ...prev, [type]: false }));
+      setSuggestions([]);
     }
   };
 
-  const handleSelectSuggestion = (type, record) => {
-    setFormData((prev) => ({
+  const handleSelect = (record) => {
+    setFormData(prev => ({
       ...prev,
-      [type]: {
+      [modal]: {
         fullName: record.fullName,
         idType: record.idType,
         idNo: record.idNo,
-      },
+      }
     }));
-    setSuggestions((prev) => ({ ...prev, [type]: [] }));
-    setExisting((prev) => ({ ...prev, [type]: true }));
+    setSuggestions([]);
   };
-   const handleSubmit = async (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if current modal data is complete
+    const currentData = formData[modal];
+    if (!currentData.fullName || !currentData.idType || !currentData.idNo) {
+      alert("Fadlan buuxi xogta oo dhan!");
+      return;
+    }
 
     try {
-      const payload = { damiinte: formData.damiinte };
-      if (includeLaDamiinte) {
-        payload.laDamiinte = formData.laDamiinte;
+      let newRecord = { ...currentData };
+
+      // Cusub → u dir backend
+      if (mode === "cusub") {
+        const bodyData =
+          modal === "damiinte"
+            ? { damiinte: currentData }
+            : { laDamiinte: currentData };
+
+        const res = await fetch("/api/damiin/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyData),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Error saving record!");
+          return;
+        }
+
+        alert("Xogta waa la keydiyey!");
+        newRecord = data.saved || currentData;
       }
 
-      const res = await fetch("/api/damiin/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      setRecords((prev) => {
+        const updated = [...prev[modal]];
+        if (editIndex !== null) {
+          updated[editIndex] = newRecord;
+        } else {
+          updated.push(newRecord);
+        }
+        return { ...prev, [modal]: updated };
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Error saving record");
-      } else {
-        alert(data.message);
-        setFormData({
-          damiinte: { fullName: "", idType: "", idNo: "" },
-          laDamiinte: { fullName: "", idType: "", idNo: "" },
-        });
-        setExisting({ damiinte: false, laDamiinte: false });
-      }
+      // Reset modal-specific data
+      setFormData(prev => ({
+        ...prev,
+        [modal]: { fullName: "", idType: "", idNo: "" }
+      }));
+      
+      setSearchQuery("");
+      setMode("keydan");
+      setModal(null);
+      setEditIndex(null);
     } catch (err) {
       alert("Server error: " + err.message);
     }
   };
 
-
-  const generateLetter = () => {
-    setShowLetter(true);
+  const handleEdit = (type, index) => {
+    setModal(type);
+    setMode("keydan");
+    setFormData(prev => ({
+      ...prev,
+      [type]: { ...records[type][index] }
+    }));
+    setEditIndex(index);
   };
 
+  const handleDelete = (type, index) => {
+    if (window.confirm("Ma hubtaa in aad tirtireyso?")) {
+      setRecords((prev) => {
+        const updated = [...prev[type]];
+        updated.splice(index, 1);
+        return { ...prev, [type]: updated };
+      });
+    }
+  };
+
+  // In your modal form, use the nested data:
+  const currentModalData = modal ? formData[modal] : { fullName: "", idType: "", idNo: "" };
+
+
+
+  // const generateLetter = () => {
+  //   setShowLetter(true);
+  // };
+
   const downloadWord = () => {
-    if (!formData.damiinte.fullName) {
-      alert("Fadlan buuxi form-ka ka hor inta aadan download-garin");
+    // download as Word qari kaliya from ka markii la buuxiyo soo bandhig
+    if (records.damiinte.length === 0 || records.laDamiinte.length === 0) {
+      alert("Fadlan ku dar xogta Damiinte iyo La Damiinte ka hor intaadan soo dejisan!");
       return;
     }
 
-    if (!showLetter) {
-      alert("Fadlan dhagsii 'Generate Letter' marka hore");
-      return;
-    }
+   
 
     const content = `
 <html xmlns:o='urn:schemas-microsoft-com:office:office' 
@@ -176,15 +236,14 @@ const SponsorshipGabar = () => {
   <div class="center">SUBJECT: DECLARATION OF FINANCIAL GUARANTEE</div>
 
   <p>
-    I, the undersigned <span class="bold">${formData.damiinte.fullName}</span>, 
-    Somali citizen, holder of Somali <span class="bold">${formData.damiinte.idType}</span> No: <span class="bold">${formData.damiinte.idNo}</span>, 
+    I, the undersigned <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].fullName : '____________'}</span>, 
+    Somali citizen, holder of Somali <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idType : '____________'}</span> No: <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idNo : '____________'}</span>, 
     hereby declare that I fully guarantee the expenses regarding to the university costs of,
-    <span class="bold">${formData.laDamiinte.fullName}</span>, 
+    <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].fullName : '____________'}</span>, 
     Somali citizen holder of Somali 
-    <span class="bold">${formData.laDamiinte.idType}</span>,
-     No: <span class="bold">${formData.laDamiinte.idNo}</span>.
+    <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idType : '____________'}</span>,
+     No: <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idNo : '____________'}</span>.
   </p>
-
   <p>
     She is planning to go to <span class="bold">${formData.embassy}</span> 
     to pursue her studies at <span class="bold">${formData.university}</span> 
@@ -213,7 +272,8 @@ const SponsorshipGabar = () => {
   <div class="signature-section">
     <div class="signature-area">
       <p class="bold underline">SPONSOR'S NAME AND SIGNATURE</p>
-      <p class="bold">${formData.damiinte.fullName.toUpperCase()}</p>
+       <p class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].fullName.toUpperCase() : '____________'}<br>
+
       <br>
       <p>____________________________________</p>
       <br>
@@ -258,11 +318,15 @@ const SponsorshipGabar = () => {
   </div>
 
   <p>
-    Aniga oo ah <span class="bold">${formData.sponsorName}</span>, 
-    muwaadin Soomaaliyeed, haysta <span class="bold">${formData.Idname}</span> lambarkiisu yahay <span class="bold">${formData.sponsorPassport}</span>, 
+    Aniga oo ah <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].fullName : '____________'}</span>, 
+    muwaadin Soomaaliyeed, haysta <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idType :'____________'}</span>
+   lambarkiisu yahay <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idNo : '____________'}</span>,
     waxaan halkaan ku caddeynayaa inaan si buuxda dammaanad ugu qaaday kharashaadka waxbarasho iyo kuwo kale ee khuseeya
-    <span class="bold">${formData.studentName}</span>, 
-    muwaadin Soomaaliyeed ah, haysatana baasaboorka lambarkiisu yahay <span class="bold">${formData.studentPassport}</span>.
+   <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].fullName : '____________'}</span>, 
+    muwaadin Soomaaliyeed ah, haysatana 
+        <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idType : '____________'}</span>,
+
+     lambarkiisu yahay  <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idNo : '____________'}</span>.
   </p>
 
   <p>
@@ -295,8 +359,7 @@ const SponsorshipGabar = () => {
   <div class="signature-section">
     <div class="signature-area">
       <p class="bold underline">MAGACA IYO SAXIIXA DAMMAANAD-QAADAHA</p>
-      <p class="bold">${formData.damiinte.fullName.toUpperCase()}</p>
-      <br>
+      <p class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].fullName.toUpperCase() : '____________'}<br>
       <p>____________________________________</p>
       <br><br>
     </div>
@@ -352,103 +415,199 @@ const SponsorshipGabar = () => {
     <div className="bg-gray-100 flex">
       {/* Sidebar */}
       
-
       <div className="flex-1 p-10 ml-64">
         <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-lg p-8">
           <h1 className="text-2xl font-bold mb-6 text-center">Sponsorship Letter Form Gabar</h1>
+          
+       
 
-          {/* FORM */}
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <input
-              type="text"
-              name="fullName"
-              value={formData.damiinte.fullName}
-               onChange={(e) => handleChange(e, "damiinte")}
-              placeholder="Sponsor Full Name"
-              className="border p-2 rounded"
-              required
-            />
-               {suggestions.damiinte.length > 0 && (
-          <ul className="absolute bg-white border w-full z-10">
-            {suggestions.damiinte.map((s) => (
-              <li
-                key={s._id}
-                onClick={() => handleSelectSuggestion("damiinte", s)}
-                className="p-2 hover:bg-gray-200 cursor-pointer"
-              >
-                {s.fullName}
-              </li>
-            ))}
-          </ul>
-        )}
-            
-           <select
-          name="idType"
-          value={formData.damiinte.idType}
-          onChange={(e) => handleChange(e, "damiinte")}
-          className="border p-2 w-full mt-2"
-        >
-          <option value="">Select ID Type</option>
-          {idTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <input
-          name="idNo"
-          placeholder="ID Number"
-          value={formData.damiinte.idNo}
-          onChange={(e) => handleChange(e, "damiinte")}
-          className="border p-2 w-full mt-2"
-        />
-     
-            
-            {/* La Damiinte */}
+          {/* Modal */}
+          {modal && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-600 hover:text-red-600"
+                  onClick={() => {
+                    setModal(null);
+                    setEditIndex(null);
+                    setFormData(prev => ({
+                      ...prev,
+                      [modal]: { fullName: "", idType: "", idNo: "" }
+                    }));
+                  }}
+                >
+                  ✖
+                </button>
+                <h2 className="text-lg font-semibold mb-4 capitalize">
+                  {modal === "damiinte" ? "Ku dar Damiinte" : "Ku dar La Damiinte"}
+                </h2>
+
+                {/* Mode Dropdown */}
+                <label className="block mb-2 font-medium">Xaaladda</label>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className="border p-2 w-full mb-4"
+                >
+                  <option value="keydan">Keydan</option>
+                  <option value="cusub">Cusub</option>
+                </select>
+
+                {/* Form */}
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-3 relative">
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={currentModalData.fullName}
+                      onChange={handleSearch}
+                      placeholder="Full Name"
+                      className="border p-2 w-full"
+                    />
+                    {mode === "keydan" && suggestions.length > 0 && (
+                      <ul className="absolute bg-white border w-full z-10 max-h-40 overflow-y-auto">
+                        {suggestions.map((s) => (
+                          <li
+                            key={s._id}
+                            onClick={() => handleSelect(s)}
+                            className="p-2 hover:bg-gray-100 cursor-pointer"
+                          >
+                            {s.fullName}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <select
+                    name="idType"
+                    value={currentModalData.idType}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        [modal]: {
+                          ...prev[modal],
+                          idType: e.target.value
+                        }
+                      }))
+                    }
+                    className="border p-2 w-full mb-3"
+                  >
+                    <option value="">Select ID Type</option>
+                    {idTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    name="idNo"
+                    placeholder="ID Number"
+                    value={currentModalData.idNo}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        [modal]: {
+                          ...prev[modal],
+                          idNo: e.target.value
+                        }
+                      }))
+                    }
+                    className="border p-2 w-full mb-4"
+                  />
+
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+                  >
+                    {editIndex !== null ? "Update Record" : mode === "cusub" ? "Save to Database" : "Add to List"}
+                  </button>
+                </form>
+              </div>
+              
+            </div>
+          )}
+
+          {/* Rest of your component remains the same */}
+          {/* ... */}
+        
+
+     {/* Table Section */}
+<div className="mt-10">
+  {["damiinte", "laDamiinte"].map((type) => (
+    <div key={type} className="mb-8">
+      <h3 className="text-lg font-bold capitalize mb-2">
+        {type === "damiinte" ? "Damiinte" : "La Damiinte"}
+      </h3>
       
-        <input
-          name="fullName"
-          placeholder="Full Name"
-          value={formData.laDamiinte.fullName}
-          onChange={(e) => handleChange(e, "laDamiinte")}
-          className="border p-2 w-full"
-        />
-        {suggestions.laDamiinte.length > 0 && (
-          <ul className="absolute bg-white border w-full z-10">
-            {suggestions.laDamiinte.map((s) => (
-              <li
-                key={s._id}
-                onClick={() => handleSelectSuggestion("laDamiinte", s)}
-                className="p-2 hover:bg-gray-200 cursor-pointer"
-              >
-                {s.fullName}
-              </li>
-            ))}
-          </ul>
-        )}
-        <select
-          name="idType"
-          value={formData.laDamiinte.idType}
-          onChange={(e) => handleChange(e, "laDamiinte")}
-          className="border p-2 w-full mt-2"
-        >
-          <option value="">Select ID Type</option>
-          {idTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <input
-          name="idNo"
-          placeholder="ID Number"
-          value={formData.laDamiinte.idNo}
-          onChange={(e) => handleChange(e, "laDamiinte")}
-          className="border p-2 w-full mt-2"
-        />
-         {(!existing.damiinte || (includeLaDamiinte && !existing.laDamiinte)) && (
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded ">
-          Save
-        </button>
+      {records[type].length === 0 ? (
+        <div className="text-center p-4 border border-dashed border-gray-300 rounded">
+          <p className="text-gray-500 mb-4">Noting</p>
+          <button
+            onClick={() => setModal(type)}
+            className={`px-4 py-2 rounded text-white ${
+              type === "damiinte" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            Ku dar {type === "damiinte" ? "Damiinte" : "La Damiinte"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <table className="w-full border">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="border p-2">Full Name</th>
+                <th className="border p-2">ID Type</th>
+                <th className="border p-2">ID No</th>
+                <th className="border p-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records[type].map((r, i) => (
+                <tr key={i}>
+                  <td className="border p-2">{r.fullName}</td>
+                  <td className="border p-2">{r.idType}</td>
+                  <td className="border p-2">{r.idNo}</td>
+                  <td className="border p-2 space-x-2">
+                    <button
+                      className="bg-yellow-400 text-white px-2 py-1 rounded"
+                      onClick={() => handleEdit(type, i)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="bg-red-600 text-white px-2 py-1 rounded"
+                      onClick={() => handleDelete(type, i)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {/* Add button below the table */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setModal(type)}
+              className={`px-4 py-2 rounded text-white ${
+                type === "damiinte" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"
+              }`}
+            >
+              Ku dar {type === "damiinte" ? "Damiinte" : "La Damiinte"} Cusub
+            </button>
+          </div>
+        </>
       )}
-          </form>
-           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    </div>
+  ))}
+</div>
+   
+           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <input
               type="text"
               name="year"
@@ -512,7 +671,7 @@ const SponsorshipGabar = () => {
               required
             />
             
-            <div></div>
+            
             
             <input
               type="text"
@@ -537,13 +696,14 @@ const SponsorshipGabar = () => {
 
           {/* BUTTONS */}
           <div className="text-center space-x-4">
-            <button
+            {/* <button
               type="button"
               onClick={generateLetter}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
             >
               Generate Letter
-            </button>
+            </button> */}
+          
              
             <button
               type="button"
@@ -554,36 +714,38 @@ const SponsorshipGabar = () => {
             </button>
           </div>
 
-          {/* LETTER PREVIEW */}
-          <div id="letter" className={`mt-10 bg-gray-50 p-6 rounded-lg border ${showLetter ? '' : 'hidden'}`}>
-            {/* English */}
-            <h2 className="text-lg font-bold text-center">TO: <span className="text-red-600 font-semibold">{formData.embassy.toUpperCase()}</span> EMBASSY OF SOMALIA</h2>
-            <h3 className="text-center mb-4 font-semibold">SUBJECT: SPONSORSHIP LETTER</h3>
+         {/* LETTER PREVIEW - Using the last added person */}
+<div id="letter" className={`mt-10 bg-gray-50 p-6 rounded-lg border ${showLetter ? '' : 'hidden'}`}>
+  <h2 className="text-lg font-bold text-center">TO: <span className="text-red-600 font-semibold">{formData.embassy}</span> EMBASSY OF SOMALIA</h2>
+  <h3 className="text-center mb-4 font-semibold">SUBJECT: SPONSORSHIP LETTER</h3>
 
-            <p>
-              I, the undersigned 
-              <span className="text-red-600 font-semibold"> {formData.damiinte.fullName}</span>, 
-              Somali citizen, holder of Somali 
-              <span className="text-red-600 font-semibold"> {formData.damiinte.idType}</span>, 
-              No:
-              <span className="text-red-600 font-semibold"> {formData.damiinte.idNo}</span>, 
-              hereby declare that I fully guarantee the expenses regarding to the university costs of,
-              <span className="text-red-600 font-semibold"> {formData.laDamiinte.fullName}</span>, 
-              Somali citizen holder of Somali 
-             <span className="text-red-600 font-semibold"> {formData.laDamiinte.idType}</span>, 
-               No: 
-              <span className="text-red-600 font-semibold"> {formData.laDamiinte.idNo}</span>.
-            </p><br />
-
-            <p>
-              She is planning to go to
-              <span className="text-red-600 font-semibold"> {formData.embassy}</span>
-              for studying at 
-              <span className="text-red-600 font-semibold"> {formData.university}</span> 
-              in the 
-              <span className="text-red-600 font-semibold"> {formData.year}</span> 
-              academic year as an international student.
-            </p><br />
+  <p>
+    I, the undersigned 
+    <span className="text-red-600 font-semibold"> 
+      {records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].fullName : "______"}
+    </span>, 
+    Somali citizen, holder of Somali 
+    <span className="text-red-600 font-semibold"> 
+      {records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idType : "______"}
+    </span>, 
+    No:
+    <span className="text-red-600 font-semibold"> 
+      {records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idNo : "______"}
+    </span>, 
+    hereby declare that I fully guarantee the expenses regarding to the university costs of,
+    <span className="text-red-600 font-semibold"> 
+      {records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].fullName : "______"}
+    </span>, 
+    Somali citizen holder of Somali 
+    <span className="text-red-600 font-semibold"> 
+      {records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idType : "______"}
+    </span>, 
+    No: 
+    <span className="text-red-600 font-semibold"> 
+      {records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idNo : "______"}
+    </span>.
+  </p>
+  <br />
             
             <p>
               I also guarantee all the matters concerning her journey to
@@ -611,7 +773,7 @@ const SponsorshipGabar = () => {
             <hr className="my-6" />
 
             {/* Somali */}
-            <h2 className="text-lg font-bold text-center">KU: SAFAARADDA DOWLADDA <span className="text-red-600 font-semibold">{formData.Safaarad.toUpperCase()}</span> EE SOOMAALIYA</h2>
+            <h2 className="text-lg font-bold text-center">KU: SAFAARADDA DOWLADDA <span className="text-red-600 font-semibold">{formData.Safaarad}</span> EE SOOMAALIYA</h2>
             <h3 className="text-center mb-4 font-semibold">UJEEDDO: DAMAANAD-QAAD</h3>
 
             <p>
@@ -671,7 +833,7 @@ const SponsorshipGabar = () => {
             <div className="text-center mt-6">
               <div className="mb-6">
                 <p className="font-bold underline">MAGACA IYO SAXIIXA DAMMAANAD-QAADAHA</p>
-                <p className="font-bold">{formData.damiinte.fullName.toUpperCase()}</p>
+                <p className="font-bold">{formData.damiinte.fullName}</p>
                 <br />
                 <p>____________________________________</p>
                 <br /><br />
