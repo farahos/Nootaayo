@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { saveAs } from 'file-saver';
 
 const SponsorshipGabar = () => {
+  const [gender, setGender] = useState("female"); // Default to
  const [formData, setFormData] = useState({
     damiinte: { fullName: "", idType: "", idNo: "" },
     laDamiinte: { fullName: "", idType: "", idNo: "" },
@@ -245,21 +246,21 @@ const SponsorshipGabar = () => {
      No: <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idNo : '____________'}</span>.
   </p>
   <p>
-    She is planning to go to <span class="bold">${formData.embassy}</span> 
-    to pursue her studies at <span class="bold">${formData.university}</span> 
+    ${pronoun} is planning to go to <span class="bold">${formData.embassy}</span> 
+    to pursue ${possessive} studies at <span class="bold">${formData.university}</span> 
     University in the <span class="bold">${formData.year}</span> academic year as an international student.
   </p>
 
   <p>
-    I also guarantee all the matters concerning her journey to <span class="bold">${formData.embassy}</span> 
-    during her stay and higher studies in the country. 
+    I also guarantee all the matters concerning ${possessive} journey to <span class="bold">${formData.embassy}</span> 
+    during ${possessive} stay and higher studies in the country. 
   </p>
 
   <p>
-    I confirm my full financial responsibility for the above-mentioned student during the entire period of her studies at <span class="bold">${formData.university}</span> 
+    I confirm my full financial responsibility for the above-mentioned student during the entire period of ${possessive} studies at <span class="bold">${formData.university}</span> 
   </p>
 
-  <p> She applied and expecting visa from <span class="bold">${formData.embassy}</span> 
+  <p> ${pronoun} applied and expecting visa from <span class="bold">${formData.embassy}</span> 
     Embassy of Mogadishu-Somalia and I fully understand that failure to fulfill this legal obligation could result in penalties of state laws. 
   </p>
 
@@ -287,11 +288,11 @@ const SponsorshipGabar = () => {
     <table class="witness-table">
       <tr>
         <td>
-          <p class="bold">${formData.Witnesses1}</p>
+          <p class="bold">${formData.Witnesses1.toUpperCase()}</p>
           <p>__________________________________</p>
         </td>
         <td>
-          <p class="bold">${formData.Witnesses2}</p>
+          <p class="bold">${formData.Witnesses2.toUpperCase()}</p>
           <p>__________________________________</p>
         </td>
       </tr>
@@ -323,21 +324,21 @@ const SponsorshipGabar = () => {
    lambarkiisu yahay <span class="bold">${records.damiinte.length > 0 ? records.damiinte[records.damiinte.length - 1].idNo : '____________'}</span>,
     waxaan halkaan ku caddeynayaa inaan si buuxda dammaanad ugu qaaday kharashaadka waxbarasho iyo kuwo kale ee khuseeya
    <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].fullName : '____________'}</span>, 
-    muwaadin Soomaaliyeed ah, haysatana 
+    muwaadin Soomaaliyeed ah, ${lahaansho_sheyal} 
         <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idType : '____________'}</span>,
 
      lambarkiisu yahay  <span class="bold">${records.laDamiinte.length > 0 ? records.laDamiinte[records.laDamiinte.length - 1].idNo : '____________'}</span>.
   </p>
 
   <p>
-    Waxa ay qorsheyneysaa in ay u safarto dalka <span class="bold">${formData.Safaarad}</span> 
-    si ay wax ugu barato Jaamacadda <span class="bold">${formData.university}</span> 
-    sannadka waxbarasho ee <span class="bold">${formData.year}</span> Ayada oo ah ardayad caalami ah. 
+    Waxa ${magacUyeel_1} ${shaqo} in ${magacUyeel_1} u ${safar} dalka <span class="bold">${formData.Safaarad}</span> 
+    si ${magacUyeel_1} wax ugu ${bar} Jaamacadda <span class="bold">${formData.university}</span> 
+    sannadka waxbarasho ee <span class="bold">${formData.year}</span> ${magacUyeel} oo ah ${arday} caalami ah. 
   </p>
 
   <p>
-    Sidoo kale waxaan dammaanad qaadayaa dhammaan arrimaha ku saabsan safarkeeda dalka <span class="bold">${formData.Safaarad}</span>, 
-    muddada ay halkaas joogeyso iyo dhammaan kharashka waxbarashadeeda sare ee dalkaas. 
+    Sidoo kale waxaan dammaanad qaadayaa dhammaan arrimaha ku saabsan ${safar1} dalka <span class="bold">${formData.Safaarad}</span>, 
+    muddada ${magacUyeel_1} halkaas ${Jog} iyo dhammaan kharashka ${waxbarasho} sare ee dalkaas. 
   </p>
 
   <p>
@@ -346,7 +347,7 @@ const SponsorshipGabar = () => {
     jaamacadda ee ku baxaya, sida hoyga, lacagaha waxbarashada iyo waxyaabaha kale. 
   </p>
 
-  <p>Waxa ay codsatay ayna sugeysaa in fiisaha laga siiyo Safaaradda dowladda <span class="bold">${formData.Safaarad}</span> 
+  <p>Waxa ${magacUyeel_1} ${codsi} ${magacUyeel_1} ${sug} in fiisaha laga siiyo Safaaradda dowladda <span class="bold">${formData.Safaarad}</span> 
       ee Muqdisho–Soomaaliya, waxa aan si buuxda u fahamsanahay in haddii aanan gudan waajibaadkan sharci, in ay keeni karto ciqaabta uu sharciga dhigayo. 
   </p>
 
@@ -372,11 +373,11 @@ const SponsorshipGabar = () => {
     <table class="witness-table">
       <tr>
         <td>
-          <p class="bold">${formData.Witnesses1}</p>
+          <p class="bold">${formData.Witnesses1.toUpperCase()}</p>
           <p>__________________________________</p>
         </td>
         <td>
-          <p class="bold">${formData.Witnesses2}</p>
+          <p class="bold">${formData.Witnesses2.toUpperCase()}</p>
           <p>__________________________________</p>
         </td>
       </tr>
@@ -410,6 +411,27 @@ const SponsorshipGabar = () => {
       setShowMessage('');
     }, 3000);
   };
+  // sentence chance female to male based on "she and her" if male
+ const pronoun = gender === "female" ? "She" : "He";
+const possessive = gender === "female" ? "her" : "his";
+
+
+const magacUyeel_1 = gender === "female" ? "ay" : "uu";
+const lahaansho_sheyal = gender === "female" ? "haysatana" : "haystana";
+const magacUyeel = gender === "female" ? "ayada" : "isaga";
+const lahaansho = gender === "female" ? "keeda" : "kiisa"; 
+const shaqo = gender === "female" ? "qorsheyneysaa" : "qorsheynaya";
+const safar = gender === "female" ? "safarto" : "safro";
+const safar1 = gender === "female" ? "safarkeeda" : "safarkiisa";
+const bar = gender === "female" ? "barato" : "barto";
+const arday = gender === "female" ? "ardayad" : "arday";
+const Jog = gender === "female" ? "joogeyso" : "joogayo";
+const codsi = gender === "female" ? "codsatay" : "codsaday";
+const sug = gender === "female" ? "sugeysaa" : "sugayaa";
+const waxbarasho = gender === "female" ? "waxbarashadeeda" : "waxbarashadiisa";
+
+
+
 
   return (
     <div className="bg-gray-100 flex">
@@ -606,8 +628,21 @@ const SponsorshipGabar = () => {
     </div>
   ))}
 </div>
+ <select 
+          value={gender}
+          onChange={(e) => setGender(e.target.value)}
+          className="bg-gray-200 p-2 rounded mb-4"
+        >
+          <option value="female">Female (Gabar)</option>
+          <option value="male">Male (Wiil)</option>
+        </select>
    
            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {/* GENDER SELECTOR */}
+      
+       
+     
+
             <input
               type="text"
               name="year"
